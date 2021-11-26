@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# data sources (user-specific downloads folder)
+data=~/Downloads/COVID-19_casus_landelijk.csv
+
+# shorthand text formatting
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+# Retrieve data from RIVM
+retrieve () {
+    echo "retrieving from rivm website"
+    curl -o $data https://data.rivm.nl/covid-19/COVID-19_casus_landelijk.csv -#
+}
+
+echo "${bold}checking corona count${normal}";
+
+if [[ -e $data ]];
+then
+    printf "%-20s %-20s\n" "Found local file:" $data
+    
+    # Check if document outdated
+    date=$(cat $data | head -n 2 | tail -n 1 | cut -d ";" -f1 | grep "[0-9]*-[0-9]*-[0-9]*" -o)
+    today=$(date '+%Y-%m-%d')
+    
+    printf "%-20s %-20s\n" "document date:" "$date"
+    printf "%-20s %-20s\n\n" "today:" "$today"
+    
+    # If document is outdated by more than a day
+    # prompt user to update
+    if [[ $today > $date ]];
+    then
+        echo "Data is outdated, do you want to update? [1/2]"
+        select yn in "Yes" "No"; do
+            case $yn in
+                Yes ) retrieve; break;;
+                No ) exit;;
+            esac
+        done
+    fi
+    
+    cat $data | tail -n 500000 | cut -d ";" -f4 -f7 | grep "Yes" | sort | uniq -c
+else
+    echo "retrieving from rivm website"
+    curl https://data.rivm.nl/covid-19/COVID-19_casus_landelijk.csv -# | tail -n 500000 | cut -d ";" -f4 -f7 | grep "Yes" | sort | uniq -c
+fi
