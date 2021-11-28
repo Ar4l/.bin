@@ -17,11 +17,15 @@ echo "${bold}checking corona count${normal}";
 
 if [[ -e $data ]];
 then
+    # If data exists, check if outdated
     printf "%-20s %-20s\n" "Found local file:" $data
     
     # Check if document outdated
     date=$(cat $data | head -n 2 | tail -n 1 | cut -d ";" -f1 | grep "[0-9]*-[0-9]*-[0-9]*" -o)
     today=$(date '+%Y-%m-%d')
+    
+    # TODO: Check if I can fetch only the first line of the online data,
+    # To see whether there actually is a more up-to-date version.
     
     printf "%-20s %-20s\n" "document date:" "$date"
     printf "%-20s %-20s\n\n" "today:" "$today"
@@ -34,13 +38,43 @@ then
         select yn in "Yes" "No"; do
             case $yn in
                 Yes ) retrieve; break;;
-                No ) exit;;
+                No ) break;;
             esac
         done
     fi
-    
-    cat $data | tail -n 500000 | cut -d ";" -f4 -f7 | grep "Yes" | sort | uniq -c
 else
-    echo "retrieving from rivm website"
-    curl https://data.rivm.nl/covid-19/COVID-19_casus_landelijk.csv -# | tail -n 500000 | cut -d ";" -f4 -f7 | grep "Yes" | sort | uniq -c
+    # Data does not exist
+    retrieve;
+    
+    date=$(cat $data | head -n 2 | tail -n 1 | cut -d ";" -f1 | grep "[0-9]*-[0-9]*-[0-9]*" -o)
+    printf "%-20s %-20s\n" "document date:" "$date"
 fi
+
+### Request date range
+echo ""
+echo "Show data from last: [1/2/3/4/5]"
+select last in "week" "month" "2 months" "6 months" "12 months"; do
+    case $last in
+        week ) from=$(date -j -v-7d -f "%Y-%m-%d" $date "+%Y-%m-%d"); break;;
+        month ) from=$(date -j -v-1m -f "%Y-%m-%d" $date "+%Y-%m-%d"); break;;
+        "2 months" ) from=$(date -j -v-2m -f "%Y-%m-%d" $date "+%Y-%m-%d"); break;;
+        "6 months" ) from=$(date -j -v-6m -f "%Y-%m-%d" $date "+%Y-%m-%d"); break;;
+        "12 months" ) from=$(date -j -v-1y -f "%Y-%m-%d" $date "+%Y-%m-%d"); break;;
+    esac
+done
+echo -e "Searching for data from $from to $date.\n"
+
+### Compute lines (total - fromDate)
+lines=$(($(echo $(wc -l $data) | cut -d' ' -f1) - $(cut -d ";" -f2 $data | grep "$from" -n | head -n 1 | cut -d: -f1)))
+#echo "Line number: $lines."
+#echo "Last line: $(echo $(wc -l $data) | cut -d' ' -f1)."
+        
+res=$(cat $data | tail -n $lines | cut -d ";" -f4 -f7 | grep "Yes" | sort | tr ";Yes" " " | uniq -c | awk '{s+=$1; print $0 s }')
+echo -e "hospitalisations age-group cum-total\n $res" | column -t
+
+#echo $res
+#cut -f1 "$res" | awk '{s+=$1} END {print s}' >> "$res"
+#echo " total" >> "$res"
+#
+#echo "$res"
+
