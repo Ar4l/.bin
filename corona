@@ -24,15 +24,14 @@ then
     date=$(cat $data | head -n 2 | tail -n 1 | cut -d ";" -f1 | grep "[0-9]*-[0-9]*-[0-9]*" -o)
     today=$(date '+%Y-%m-%d')
     
-    # TODO: Check if I can fetch only the first line of the online data,
-    # To see whether there actually is a more up-to-date version.
-    
     printf "%-20s %-20s\n" "document date:" "$date"
-    printf "%-20s %-20s\n\n" "today:" "$today"
+    printf "%-20s %-20s\n" "today:" "$today"
     
     # If document is outdated by more than a day
     # prompt user to update
-    if [[ $today > $date ]];
+    actual=$(curl -s https://data.rivm.nl/covid-19/COVID-19_casus_landelijk.csv | head -n 2 | tail -n 1 | cut -d ";" -f1 | grep "[0-9]*-[0-9]*-[0-9]*" -o)
+    
+    if [[ $today > $date && $actual > $date ]];
     then
         echo "Data is outdated, do you want to update? [1/2]"
         select yn in "Yes" "No"; do
@@ -71,10 +70,3 @@ lines=$(($(echo $(wc -l $data) | cut -d' ' -f1) - $(cut -d ";" -f2 $data | grep 
         
 res=$(cat $data | tail -n $lines | cut -d ";" -f4 -f7 | grep "Yes" | sort | tr ";Yes" " " | uniq -c | awk '{s+=$1; print $0 s }')
 echo -e "hospitalisations age-group cum-total\n $res" | column -t
-
-#echo $res
-#cut -f1 "$res" | awk '{s+=$1} END {print s}' >> "$res"
-#echo " total" >> "$res"
-#
-#echo "$res"
-
