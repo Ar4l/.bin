@@ -1,0 +1,46 @@
+Y1Q1, CSE1100, CSE1300, CSE1400
+Y1Q2, CSE1200, CSE1305, CSE1500
+Y1Q3, CSE1205, CSE1105, CSE1505
+Y1Q4, CSE1210, CSE1110, CSE1405
+Y2Q1, CSE2215, CSE2510, Variant
+Y2Q2, CSE2310, CSE2115, Variant
+Y2Q3, CSE2315, CSE2120, Variant
+Y2Q4, CSE2000
+Y3Q4, CSE3000
+
+Variant
+    Multimedia
+        Y2Q1: CSE2220
+        Y2Q2: CSE2225
+        Y2Q3: CSE2230
+    Systems
+        Y2Q1: CSE2420
+        Y2Q2: CSE2425
+        Y2Q3: CSE2430
+    Data
+        Y2Q1: CSE2520
+        Y2Q2: CSE2525
+        Y3Q3: CSE2530
+    
+
+Input;
+Course code
+Year & Quarter 
+
+Anything that doesnt match Y\dQ\d is a variant 
+
+
+What we need to store;
+
+COURSE
+id (key)
+name (str)
+tests -> List<Test>
+# final grade calc
+
+TEST
+courseID -> Course
+date 
+name (midterm/endterm)
+location (null for online)
+

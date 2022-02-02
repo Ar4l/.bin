@@ -26,8 +26,7 @@ def login(username, password):
     us.send_keys(username)
     ps.send_keys(password + '\n')
     
-    # driver.find_element(By.ID, 'submit_button').click()
-    # TODO: Return confirmation/error
+    # TODO: Return false/throw exception 
     return True
    
 def register_for_course(course):
