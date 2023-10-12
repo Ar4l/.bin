@@ -3,6 +3,8 @@ from subprocess import PIPE, run
 
 PLAYLISTS = 'playlists.txt'
 
+# TODO: Multithread this bitch
+
 with open(PLAYLISTS) as f:
     for line in f:
 

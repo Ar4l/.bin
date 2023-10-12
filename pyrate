@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+import pickle, fire, subprocess, os
+from dataclasses import dataclass
+
+@dataclass
+class Data:
+    library_path: str = None
+    playlists: dir = None
+
+
+# class Pyrate(object):
+
+#     def __init__(self, *args, **kwargs):
+
+#         # Different KWARGS to consider:
+#         ARG_LIBRARY_PATH = 'library-path'
+
+#         print('initialising')
+
+#         # get path of this file
+#         script_path = os.path.dirname(os.path.realpath(__file__))
+#         METADATA_PATH = os.path.join(script_path, 'pyrate-data')
+
+#         if os.path.exists(METADATA_PATH):
+#             self.data = pickle.load(open(METADATA_PATH, 'rb'))
+#             print(f'Loaded data. Library path: {self.data.library_path}')
+
+#         else:
+#             self.data = Data()
+
+#             # need to prompt user to provide library path, press enter to use cwd
+#             self.data.library_path = input('Please enter the path to your music library (press enter for cwd): ')
+#             if self.data.library_path == '':
+#                 self.data.library_path = os.getcwd()
+#                 print(f'Using current directory: {self.data.library_path}')
+
+#             # save data 
+#             pickle.dump(self.data, open(METADATA_PATH, 'wb'))
+
+#         # if user provides library path as kwarg, overwrite the saved data
+#         if ARG_LIBRARY_PATH in kwargs:
+#             self.data.library_path = kwargs[ARG_LIBRARY_PATH]
+#             pickle.dump(self.data, open(METADATA_PATH, 'wb'))
+
+STR_HELP = '''
+    Aral's pyrating utility for Spotify, Youtube, and Soundcloud.
+'''
+
+ARG_LIBRARY_PATH = 'library-path'
+
+def load_metadata():
+    # get path of this file
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    METADATA_PATH = os.path.join(script_path, 'pyrate-data')
+
+    if os.path.exists(METADATA_PATH):
+        data = pickle.load(open(METADATA_PATH, 'rb'))
+
+    else:
+        data = Data()
+
+        # need to prompt user to provide library path, press enter to use cwd
+        data.library_path = input('Please enter the path to your music library (press enter for cwd): ')
+        if data.library_path == '':
+            data.library_path = os.getcwd()
+
+        # save data 
+        pickle.dump(data, open(METADATA_PATH, 'wb'))
+
+    return data
+
+def main(*args, **kwargs): 
+    
+    # if both args and kwargs are empty, print help
+    if not args and not kwargs:
+        print(STR_HELP)
+        metadata = load_metadata()
+        print(f'Library path: {metadata.library_path} (change with {ARG_LIBRARY_PATH} flag)')
+        print(f'{len(metadata.playlists)} playlists found.' \
+              if metadata.playlists is not None else 'No playlists downloaded yet.')
+        return
+    
+    def library_path(input_str: str):
+        print(input_str)
+
+
+    print(f'args: {args}, kwargs: {kwargs}')
+
+if __name__ == '__main__':
+    fire.Fire(main)
+
+# pirate https://spotify.com/abcdefg 
+# downloads the playlist using spotdl to its own directory, within user specified library
+# with args:
+#    sync <url> --format m4a --save-file <pl_name>.spotdl --m3u <pl_name>.m3u
+
+# if the user has not defined a root folder for their library yet,
+# prompt them to create it in the current directory, and save it under /pyrate-data/meta.toml
+

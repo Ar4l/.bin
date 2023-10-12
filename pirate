@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Script by Aral 
+
+# current_dir=$(pwd)
+# if [[ "$current_dir" != "$ml" ]]; then 
+#     echo "Warning: Not in music dir: $ml, neq to $pwd"
+# fi
+playlist_dir="$ml/playlists"
+cd "$playlist_dir"
+
+sync() {
+    # Acquire songs, completely _legally_ using open-source libraries
+    #
+    # Saves a sync file named <pl_name>.spotdl
+    # Also defines a song order <pl_name>.m3u
+    # Formatted as m4a because *`apple`*.
+
+    echo "syncing $1: $2"
+    spotdl sync "$2" --format m4a --save-file "$1".spotdl --m3u "$1.m3u"
+}
+
+if [[ "$1" == "" ]]; then
+
+    # Run through urls.txt and re-fetch all
+    echo "syncing playlists... "
+
+    # First, let's prune any duplicate links
+    sort urls.txt | uniq > urls_u.txt
+    mv urls_u.txt urls.txt
+
+    # Now iterate over all name:link pairs, calling sync
+    while read -r line; do 
+        IFS=':' read -r arg1 arg2 <<< "$line"
+
+        cd "$arg1" 
+        sync "$arg1" "$arg2"
+        cd "$playlist_dir"
+        
+    done < urls.txt
+
+else 
+    # Create a new directory for this playlist
+    mkdir "$1"
+    cd "$1"
+
+    sync "$1" "$2"
+
+    # Store url for later sync purposes
+    cd "$playlist_dir"
+    echo "$1:$2" >>urls.txt
+fi
+
