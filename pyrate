@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import pickle, fire, subprocess, os
+import pickle, fire, subprocess, os, requests
 from dataclasses import dataclass
 
 @dataclass
@@ -8,92 +8,153 @@ class Data:
     playlists: dir = None
 
 
-# class Pyrate(object):
+class Pyrate(object):
+    '''
+    Download Spotify playlists, Youtube and Soundcloud songs. 
+    '''
+    METADATA_FILE = 'pyrate-data'
+    SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+    PLAYLISTS_FOLDER = 'playlists'
+    YOUTUBE_FOLDER = 'youtube'
+    SOUNDCLOUD_FOLDER = 'soundcloud'
 
-#     def __init__(self, *args, **kwargs):
+    def __init__(self):
+        self._metadata : Data = self._load_metadata(os.path.join(self.SCRIPT_PATH, self.METADATA_FILE))
+        print(f'{self._metadata.library_path} contains {len(self._metadata.playlists)} playlists\n')
 
-#         # Different KWARGS to consider:
-#         ARG_LIBRARY_PATH = 'library-path'
+    def list(self):
+        '''
+        list all playlists
+        '''
+        for index, playlist in enumerate(self._metadata.playlists):
+            # get number of songs in that playlist
+            song_count = len(open(os.path.join(self._metadata.library_path, self.PLAYLISTS_FOLDER, playlist, f'{playlist.strip()}.m3u'), 'r').readlines())
+            print(f'{index}.  ({song_count}) {playlist}')
 
-#         print('initialising')
+    def sync(self, playlist_input=None):
+        '''
+        call spotdl to sync all playlists, or provide input
+        '''
+        if playlist_input is None:
+            playlist_input = input('Please enter the name or index of the playlist you want to sync (press enter for all): ')
+            if playlist_input == 'q' or playlist_input == 'quit':
+                return
 
-#         # get path of this file
-#         script_path = os.path.dirname(os.path.realpath(__file__))
-#         METADATA_PATH = os.path.join(script_path, 'pyrate-data')
+        opt_all = playlist_input == ''
+        opt_name = playlist_input in self._metadata.playlists
+        opt_index = playlist_input.isdigit() and int(playlist_input) < len(self._metadata.playlists) and int(playlist_input) >= 0
 
-#         if os.path.exists(METADATA_PATH):
-#             self.data = pickle.load(open(METADATA_PATH, 'rb'))
-#             print(f'Loaded data. Library path: {self.data.library_path}')
+        if opt_all:
+            for name, url in self._metadata.playlists.items():
+                self._get_spotify_playlist(url, name)
+        elif opt_name:
+            self._get_spotify_playlist(self._metadata.playlists[playlist_input], playlist_input)
+        elif opt_index:
+            self._get_spotify_playlist(list(self._metadata.playlists.values())[int(playlist_input)], list(self._metadata.playlists.keys())[int(playlist_input)])
+        else:
+            print('Invalid input. Please try again.')
+            return
 
-#         else:
-#             self.data = Data()
+    def get(self, url):
+        '''
+        provided a playlist url, get it from the appropriate source
+        '''
+        if 'spotify' in url:
+            self._get_spotify_playlist(url)
+        elif 'youtube' in url:
+            print('fetching from youtube')
+            self._get_youtube_song(url)
+        elif 'soundcloud' in url:
+            print('fetching from soundcloud')
+            self._get_soundcloud_song(url)
 
-#             # need to prompt user to provide library path, press enter to use cwd
-#             self.data.library_path = input('Please enter the path to your music library (press enter for cwd): ')
-#             if self.data.library_path == '':
-#                 self.data.library_path = os.getcwd()
-#                 print(f'Using current directory: {self.data.library_path}')
+    def _get_spotify_playlist(self, url, name=None):
+        '''
+        get a spotify playlist
+        '''
+        # first we want to visit the url and get the playlist name
+        # then we want to create a folder with that name in the playlists folder
+        # then, call spotdl to download the playlist to that folder
+        # then, add the playlist to the metadata, and save it
+        
+        if name is None:
+            # get playlist name by curl and parsing the name
+            try: 
+                response = requests.get(url).content[:300]
+                # get what's between <title> and </title>
+                page_title = response.split(b'<title>')[1].split(b'</title>')[0].split(b',')[0].decode('utf-8')
+                name = page_title.split(' - ')[0]
+            except:
+                name = input('Could not get playlist name. Please enter it manually: ')
+        name = name.strip()
 
-#             # save data 
-#             pickle.dump(self.data, open(METADATA_PATH, 'wb'))
+        print(f'Syncing from Spotify: {name}')
 
-#         # if user provides library path as kwarg, overwrite the saved data
-#         if ARG_LIBRARY_PATH in kwargs:
-#             self.data.library_path = kwargs[ARG_LIBRARY_PATH]
-#             pickle.dump(self.data, open(METADATA_PATH, 'wb'))
+        # create folder for playlist
+        playlist_path = os.path.join(self._metadata.library_path, self.PLAYLISTS_FOLDER, name)
+        if not os.path.exists(playlist_path):
+            os.makedirs(playlist_path)
+        os.chdir(playlist_path)
 
-STR_HELP = '''
-    Aral's pyrating utility for Spotify, Youtube, and Soundcloud.
-'''
+        # call spotdl to download the playlist
+        #    sync <url> --format m4a --save-file <pl_name>.spotdl --m3u <pl_name>.m3u
+        subprocess.run(['spotdl', 'sync', url, '--format', 'm4a', '--save-file', f'{name}.spotdl', '--m3u', f'{name}.m3u', '--threads', '8'])
 
-ARG_LIBRARY_PATH = 'library-path'
+        # add playlist to metadata
+        self._metadata.playlists[name] = url 
+        self._save_metadata()
 
-def load_metadata():
-    # get path of this file
-    script_path = os.path.dirname(os.path.realpath(__file__))
-    METADATA_PATH = os.path.join(script_path, 'pyrate-data')
+    def _get_youtube_song(self, url):
+        '''
+        get a youtube song and add to 'youtube' playlist
+        '''
+        print('TODO')
+        pass
 
-    if os.path.exists(METADATA_PATH):
-        data = pickle.load(open(METADATA_PATH, 'rb'))
+    def _get_soundcloud_song(self, url):
+        '''
+        get a soundcloud song and add to 'soundcloud' playlist
+        '''
+        print('TODO')
+        pass
 
-    else:
-        data = Data()
+    def _load_metadata(self, metadata_path):
 
-        # need to prompt user to provide library path, press enter to use cwd
-        data.library_path = input('Please enter the path to your music library (press enter for cwd): ')
-        if data.library_path == '':
-            data.library_path = os.getcwd()
+        if os.path.exists(metadata_path):
+            data = pickle.load(open(metadata_path, 'rb'))
 
-        # save data 
-        pickle.dump(data, open(METADATA_PATH, 'wb'))
+        else:
+            data = Data()
 
-    return data
+            # need to prompt user to provide library path, press enter to use cwd
+            data.library_path = input('Please enter the path to your music library (press enter for cwd): ')
+            if data.library_path == '':
+                data.library_path = os.getcwd()
 
-def main(*args, **kwargs): 
-    
-    # if both args and kwargs are empty, print help
-    if not args and not kwargs:
-        print(STR_HELP)
-        metadata = load_metadata()
-        print(f'Library path: {metadata.library_path} (change with {ARG_LIBRARY_PATH} flag)')
-        print(f'{len(metadata.playlists)} playlists found.' \
-              if metadata.playlists is not None else 'No playlists downloaded yet.')
-        return
-    
-    def library_path(input_str: str):
-        print(input_str)
+            data.playlists = {}
+            # save data 
+            pickle.dump(data, open(metadata_path, 'wb'))
 
+        return data
 
-    print(f'args: {args}, kwargs: {kwargs}')
+    def _save_metadata(self):
+        metadata_path = os.path.join(self.SCRIPT_PATH, self.METADATA_FILE)
+        pickle.dump(self._metadata, open(metadata_path, 'wb'))
 
 if __name__ == '__main__':
-    fire.Fire(main)
 
-# pirate https://spotify.com/abcdefg 
-# downloads the playlist using spotdl to its own directory, within user specified library
-# with args:
-#    sync <url> --format m4a --save-file <pl_name>.spotdl --m3u <pl_name>.m3u
+    # Only call fire.Fire(Pyrate) if arguments are provided
+    import sys
+    if len(sys.argv) > 1:
+        fire.Fire(Pyrate)
 
-# if the user has not defined a root folder for their library yet,
-# prompt them to create it in the current directory, and save it under /pyrate-data/meta.toml
-
+    else:
+        # print docstring of Pyrate class without indentation
+        print(Pyrate.__doc__.strip())
+        Pyrate()
+        
+        # print each function in pyrate class together with its docstring
+        for name, func in Pyrate.__dict__.items():
+            if callable(func) and not name.startswith('_'):
+                # print ITALICISED function name and doc in nice table
+                print(f'\033[3m{name}\033[0m\t{func.__doc__.strip()}')
