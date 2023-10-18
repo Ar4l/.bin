@@ -6,7 +6,7 @@
 # Or, add it to your path and call `analyse` from anywhere.
 ############################################################
 
-import os, sys, json, pickle
+import os, sys, subprocess, json, datetime 
 from dataclasses import dataclass 
 
 # @dataclass
@@ -27,9 +27,7 @@ from dataclasses import dataclass
 #         with open(self.METADATA_FILE, 'wb') as f:
 #             pickle.dump(self, f)
         
-METADATA_FILE = 'metadata.pkl'
-DATA_DIR = '../data'
-LAST_UPDATE = '101010' # YYMMDD
+DATA_DIR = './data/'
 
 class Analyse: # Functions in this class are exposed to CLI
     '''
@@ -38,11 +36,48 @@ class Analyse: # Functions in this class are exposed to CLI
     def __init__(self):
         pass
 
-    def _read_data(self):
+    def _loop_over_data(self, func, start_index:int=0) -> list:
         '''
-        Reads in all data from DATA_DIR and returns it as a list of dicts
+        Calls func on each data file, and returns a list of files that threw errors
         '''
-        pass
+        start_index = int(start_index) # somehow this is necessary (don't ask me why...)
+        print(f'calling {func.__name__} on each file in {DATA_DIR} (starting at index {start_index})')
+
+        data_iter = os.listdir(DATA_DIR)[start_index:]
+        n_files = len(data_iter)
+        print_step = n_files // 1000
+        error_files = []
+
+        for index, file in enumerate(data_iter):
+            try: 
+                func(file)
+            except KeyboardInterrupt:
+                print(f'\nStopped at index {index+start_index}')
+                break
+            except: 
+                error_files.append(file)
+                print(f'\tError on file {file} at index {index+start_index}')
+
+            if index % print_step == 0:
+                print(f'\r{index+1}/{n_files} ({100*(index+1)/n_files:.1f}%) {"remaining" if start_index != 0 else ""} files processed', end='')
+
+        print(f'{len(error_files)} files threw errors and were not processed.')
+        return error_files
+
+    def sort_by_user(self, start_index:int = 0): # This should allow for faster file browsing and searching.
+        '''
+        Create a directory for each user, and store their queries in there.
+        '''
+        SORTED_DIR = 'sorted by users/'
+        os.makedirs(SORTED_DIR, exist_ok=True)
+
+        def move_to_user_dir(file):
+            # create a copy of the file in the new directory
+            user, new_file = file.rsplit('-', 1)
+            os.makedirs(f'{SORTED_DIR}{user}', exist_ok=True)
+            subprocess.run(['cp', f'{DATA_DIR}{file}', f'{SORTED_DIR}{user}/{new_file}'])
+
+        error_files = self._loop_over_data(move_to_user_dir, start_index)
 
     def get_number_of_contexts(self):
         '''
@@ -50,11 +85,6 @@ class Analyse: # Functions in this class are exposed to CLI
         '''
         print('lol no')
         pass
-
-    def sort_by_user(self):
-        pass
-
-
 
 if __name__ == '__main__':
 
