@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+
+############################################################
+# If you want to use this script, just call `./analyse` 
+# from the command line, it will help you further.
+# Or, add it to your path and call `analyse` from anywhere.
+############################################################
+
+import os, sys, json, pickle
+from dataclasses import dataclass 
+
+# @dataclass
+# class Data:
+
+#     def read_metadata(self):
+#         '''read in as pickle'''
+#         if os.path.exists(self.METADATA_FILE):
+#             with open(self.METADATA_FILE, 'rb') as f:
+#                 return pickle.load(f)
+#         else:
+#             print('No metadata file found. Creating new one.')
+#             self.save_metadata()
+#             return self
+
+#     def save_metadata(self):
+#         '''save as pickle'''
+#         with open(self.METADATA_FILE, 'wb') as f:
+#             pickle.dump(self, f)
+        
+METADATA_FILE = 'metadata.pkl'
+DATA_DIR = '../data'
+LAST_UPDATE = '101010' # YYMMDD
+
+class Analyse: # Functions in this class are exposed to CLI
+    '''
+    Utility for analysing code4me data
+    '''
+    def __init__(self):
+        pass
+
+    def _read_data(self):
+        '''
+        Reads in all data from DATA_DIR and returns it as a list of dicts
+        '''
+        pass
+
+    def get_number_of_contexts(self):
+        '''
+        Returns the number of contexts in the data
+        '''
+        print('lol no')
+        pass
+
+    def sort_by_user(self):
+        pass
+
+
+
+if __name__ == '__main__':
+
+    if len(sys.argv) > 1:
+        analyse = Analyse()
+        func = getattr(analyse, sys.argv[1])
+        func(*sys.argv[2:])
+
+
+    else:
+        # print docstring of class without indentation
+        print(Analyse.__doc__.strip())
+        
+        # print each function in class together with its docstring
+        for name, func in Analyse.__dict__.items():
+            if callable(func) and not name.startswith('_'):
+                # print ITALICISED function name and doc in nice table
+                print(f'\033[3m{name}\033[0m\t{func.__doc__.strip()}')
