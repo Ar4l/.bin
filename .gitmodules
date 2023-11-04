@@ -1,0 +1,3 @@
+[submodule "random/gruvbox-terminal"]
+	path = random/gruvbox-terminal
+	url = git@github.com:sidnvy/gruvbox-terminal.git
