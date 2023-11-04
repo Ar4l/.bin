@@ -1,0 +1,126 @@
+#!/opt/homebrew/bin/python3
+
+import subprocess, os, sys, io
+from enum import Enum 
+
+class DiffType(Enum):
+    '''
+    Enum for the type of difference between two files
+    '''
+    ADDED = '+'
+    REMOVED = '-'
+    CHANGED = '!'
+
+def _parse_byte_string(size: str) -> int:
+    ''' Parse string of type 1.3K or 438B or empty string into bytes '''
+
+    if size == '': return 0
+
+    count, unit = size[:-1], size[-1]
+
+    match unit:
+        case 'B': return int(count)
+        case 'K': return int(float(count) * 10**3)
+        case 'M': return int(float(count) * 10**6)
+        case 'G': return int(float(count) * 10**9)
+        case 'T': return int(float(count) * 10**12)
+        case _ : raise ValueError(f'Unknown unit {unit}')
+
+
+def parse(line: str, nextline: str = None) -> (DiffType, int, tuple, str):
+    '''
+    split a line of the following format into constituent parts 
+    `! 208.0K  (size, mtime)         /private/var/protected/xprotect/XPdb`
+    `! 8.0K    (size, mtime)         /Volumes/DOCS/Insurance/.DS_Store`
+    '''
+    # first character is always the diff type
+    diff_type = DiffType(line[0])
+
+    # next 8 chars are the size
+    size = _parse_byte_string(line[2:10].strip())
+
+    # next 22 chars are the tags
+    # we dont give a flying fuck about these, but they might result in the path 
+    # being printed on the next line instead of this one 
+    tags = line[11:33]
+
+    path = line[34:] if not nextline else nextline[34:]
+
+    return diff_type, size, tags, path
+
+class Cache: 
+    def __init__(self, max_size = 3):
+        self.cache = {}
+        self.max_size = max_size 
+
+    def update(self, folder, diff_type, size): 
+        ''' Compare folder to those in the cache. If it has a matching base-
+            name > 1, simply update the cache. Otherwise, add it to the cache, 
+            and print the first cached item '''
+        
+        print(f'debug: {folder} {diff_type.value}, {size}')
+        
+        for key in self.cache:
+            common_prefix = os.path.commonprefix(key, folder)
+            if len(common_prefix.split('/')) <= 2:
+                k_diff_type, k_size, k_n_files = self.cache[key] 
+                
+                # set to ADDED if both k_diff_type and diff_type are ADDED, else 
+                # if both are REMOVED, keep as removed, otherwise CHANGED
+                k_diff_type = DiffType.ADDED if k_diff_type == diff_type == DiffType.ADDED \
+                        else DiffType.REMOVED if k_diff_type == diff_type == DiffType.REMOVED \
+                        else DiffType.CHANGED
+                self.cache[key] = (k_diff_type, k_size + size, k_n_files + 1)
+
+                return 
+            
+        # if we get here, we have a new folder to add to the cache
+        self.cache[folder] = (diff_type, size, 1)
+
+        # remove the first item if we're over the max size
+        if len(self.cache) >= self.max_size: 
+
+            # get k: v of the first item in the dictionary 
+            path, (diff_type, size, n_files) = self.cache.popitem()
+
+            # print the first item in the cache
+            print(f'{diff_type.value}\t{size//10**6:.1f}M\t{n_files}\t{path}')
+
+def main():
+
+    cmd = ['tmutil', 'compare']
+    # cmd = ['ls']
+    cache = Cache()
+    print('generating...')
+
+    with subprocess.Popen(cmd, \
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+        
+        # process.stdout.write('w8haghu')
+        # print('aiughsoh', flush=True)
+
+        prevline = None     # so much fun, thanks for an awfully formatted tool, Apple
+        # need to decode bytes to strings so we can process them
+        for line in map(lambda x: x.decode(), process.stdout.readlines()):
+
+            # print the line to stdout
+            # process.stdout.write(line)
+
+            try: 
+                print(f'parsing line: {line}', flush=True)
+                parse(line) 
+                diff_type, size, tags, path = parse(line) if not prevline else parse(prevline, line)
+                prevline = None 
+
+                # now do so matching on the path to group similar ones together
+                cache.update(path, diff_type, size)
+
+            except IndexError as e:
+                prevline = line 
+
+            # except Exception as e:
+            #     print('could not be bothered to handle this exception: ', e)
+
+
+if __name__ == '__main__':
+    main()
